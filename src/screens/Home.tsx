@@ -1,15 +1,36 @@
-import { logUserOut } from "../apollo";
+import { gql, useQuery } from "@apollo/client";
 
-// import { isLoggedInVar } from "../apollo";
-import { useHistory } from "react-router-dom";
-interface HomeProps {}
+import { seeFeed } from "../__generated__/seeFeed";
+import Photo from "../components/feed/Photo";
+import PageTitle from "../components/PageTitle";
 
-const Home: React.FC<HomeProps> = () => {
-  const history = useHistory();
+const FEED_QUERY = gql`
+  query seeFeed {
+    seeFeed {
+      id
+      user {
+        username
+        avatar
+      }
+      file
+      caption
+      likes
+      # comments
+      createdAt
+      isMine
+      isLiked
+    }
+  }
+`;
+
+const Home = () => {
+  const { data } = useQuery<seeFeed>(FEED_QUERY);
   return (
     <div>
-      <h1>Home</h1>
-      <button onClick={() => logUserOut(history)}>Log out now!</button>
+      <PageTitle title="Home" />
+      {data?.seeFeed?.map((photo) => (
+        <Photo key={photo.id} {...photo} />
+      ))}
     </div>
   );
 };
