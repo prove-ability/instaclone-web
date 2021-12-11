@@ -67,7 +67,7 @@ export default function Header() {
                 <FontAwesomeIcon icon={faCompass} size="lg" />
               </Icon>
               <Icon>
-                <Avatar url={data?.me.avatar} />
+                <Avatar url={data?.me?.avatar} />
               </Icon>
             </IconsContainer>
           ) : (

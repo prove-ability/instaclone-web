@@ -15,6 +15,7 @@ import {
   toggleLike,
   toggleLikeVariables,
 } from "../../__generated__/toggleLike";
+import Comments from "./Comments";
 
 const TOGGLE_LIKE_MUTATION = gql`
   mutation toggleLike($id: Int!) {
@@ -27,7 +28,16 @@ const TOGGLE_LIKE_MUTATION = gql`
 
 interface PhotoProps extends Omit<seeFeed_seeFeed, "__typename"> {}
 
-const Photo: React.FC<PhotoProps> = ({ id, user, file, isLiked, likes }) => {
+const Photo: React.FC<PhotoProps> = ({
+  id,
+  user,
+  file,
+  isLiked,
+  likes,
+  caption,
+  commentNumber,
+  comments,
+}) => {
   const [toggleLikeMutation] = useMutation<toggleLike, toggleLikeVariables>(
     TOGGLE_LIKE_MUTATION,
     {
@@ -38,16 +48,31 @@ const Photo: React.FC<PhotoProps> = ({ id, user, file, isLiked, likes }) => {
         const {
           toggleLike: { ok },
         } = data!;
-        if (ok) {
+        if (!ok) {
+          return;
+        }
+        const fragmentId = `Photo:${id}`;
+        const fragment = gql`
+          fragment BSName on Photo {
+            isLiked
+            likes
+          }
+        `;
+        const result = cache.readFragment<{
+          isLiked: boolean;
+          likes: number;
+        }>({
+          id: fragmentId,
+          fragment,
+        });
+        if (result && "isLiked" in result && "likes" in result) {
+          const { isLiked: cacheIsLiked, likes: cacheLikes } = result;
           cache.writeFragment({
-            id: `Photo:${id}`,
-            fragment: gql`
-              fragment BSName on Photo {
-                isLiked
-              }
-            `,
+            id: fragmentId,
+            fragment,
             data: {
-              isLiked: !isLiked,
+              isLiked: !cacheIsLiked,
+              likes: cacheIsLiked ? cacheLikes - 1 : cacheLikes + 1,
             },
           });
         }
@@ -83,6 +108,12 @@ const Photo: React.FC<PhotoProps> = ({ id, user, file, isLiked, likes }) => {
           </div>
         </PhotoActions>
         <Likes>{likes === 1 ? "1 like" : `${likes} likes`}</Likes>
+        <Comments
+          author={user.username}
+          caption={caption}
+          commentNumber={commentNumber}
+          comments={comments}
+        />
       </PhotoData>
     </PhotoContainer>
   );
