@@ -51,31 +51,14 @@ const Photo: React.FC<PhotoProps> = ({
         if (!ok) {
           return;
         }
-        const fragmentId = `Photo:${id}`;
-        const fragment = gql`
-          fragment BSName on Photo {
-            isLiked
-            likes
-          }
-        `;
-        const result = cache.readFragment<{
-          isLiked: boolean;
-          likes: number;
-        }>({
-          id: fragmentId,
-          fragment,
+        const photoId = `Photo:${id}`;
+        cache.modify({
+          id: photoId,
+          fields: {
+            isLiked: (prev: boolean) => !prev,
+            likes: (prev: number) => (isLiked ? prev - 1 : prev + 1),
+          },
         });
-        if (result && "isLiked" in result && "likes" in result) {
-          const { isLiked: cacheIsLiked, likes: cacheLikes } = result;
-          cache.writeFragment({
-            id: fragmentId,
-            fragment,
-            data: {
-              isLiked: !cacheIsLiked,
-              likes: cacheIsLiked ? cacheLikes - 1 : cacheLikes + 1,
-            },
-          });
-        }
       },
     }
   );
@@ -109,6 +92,7 @@ const Photo: React.FC<PhotoProps> = ({
         </PhotoActions>
         <Likes>{likes === 1 ? "1 like" : `${likes} likes`}</Likes>
         <Comments
+          photoId={id}
           author={user.username}
           caption={caption}
           commentNumber={commentNumber}
