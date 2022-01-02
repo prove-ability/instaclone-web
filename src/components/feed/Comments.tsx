@@ -1,21 +1,23 @@
 import styled from "styled-components";
 import { useForm } from "react-hook-form";
 import { Infer, object, string } from "superstruct";
-import { gql, useMutation } from "@apollo/client";
+import { ApolloCache, FetchResult, gql, useMutation } from "@apollo/client";
 import { superstructResolver } from "@hookform/resolvers/superstruct";
 
 import Comment from "./Comment";
 import { seeFeed_seeFeed } from "../../__generated__/seeFeed";
 import {
-  createMutation,
-  createMutationVariables,
-} from "../../__generated__/createMutation";
+  createComment,
+  createCommentVariables,
+} from "../../__generated__/createComment";
+import useUser from "../../hooks/useUser";
 
 const CREATE_COMMENT_MUTATION = gql`
   mutation createComment($photoId: Int!, $payload: String!) {
     createComment(photoId: $photoId, payload: $payload) {
       ok
       error
+      id
     }
   }
 `;
@@ -51,17 +53,50 @@ function Comments({
   commentNumber,
   comments,
 }: CommentsProps) {
-  const [createCommnetMutation, { loading }] = useMutation<
-    createMutation,
-    createMutationVariables
-  >(CREATE_COMMENT_MUTATION, {
-    onCompleted: (data) => {
-      const { ok } = data;
-    },
-  });
-  const { register, handleSubmit, reset } = useForm<SchemaType>({
+  const { data: userData } = useUser();
+  const { register, handleSubmit, setValue, getValues } = useForm<SchemaType>({
     resolver: superstructResolver(schema),
   });
+  const createCommentUpdate = (
+    cache: ApolloCache<createComment>,
+    result: FetchResult<createComment, Record<string, any>, Record<string, any>>
+  ) => {
+    if (!(result.data && "createComment" in result.data)) {
+      return;
+    }
+    const { payload } = getValues();
+    setValue("payload", "");
+    const {
+      data: {
+        createComment: { ok, id },
+      },
+    } = result;
+    if (!ok || !userData?.me) {
+      return;
+    }
+    const newComment = {
+      __typename: "Comment",
+      createdAt: Date.now(),
+      id,
+      isMine: true,
+      payload,
+      user: { ...userData.me },
+    };
+    cache.modify({
+      id: `Photo:${photoId}`,
+      fields: {
+        comments: (prev) => [...prev, newComment],
+      },
+    });
+    console.log(newComment);
+  };
+  const [createCommnetMutation, { loading }] = useMutation<
+    createComment,
+    createCommentVariables
+  >(CREATE_COMMENT_MUTATION, {
+    update: createCommentUpdate,
+  });
+
   const onValid = (data: SchemaType) => {
     const { payload } = data;
     if (loading) {
